@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>CSV整形・集計ツール</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2.25rem; }
+      * { box-sizing: border-box; }
+      :root {
+        --bg: #edf0ec;
+        --surface: #ffffff;
+        --surface-2: #f4f6f3;
+        --ink: #1d2621;
+        --muted: #5d6c62;
+        --line: #d5dcd4;
+        --accent: #0d6b4c;
+        --accent-strong: #095239;
+        --accent-soft: #e0eee6;
+        --bar: #2c8a66;
+        --danger: #b3372c;
+        --shadow: 0 1px 2px rgba(20, 35, 26, .06), 0 8px 24px rgba(20, 35, 26, .06);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #10140f;
+          --surface: #1a1f1a;
+          --surface-2: #212722;
+          --ink: #e9ede8;
+          --muted: #9dab9f;
+          --line: #323b33;
+          --accent: #45b489;
+          --accent-strong: #6fc9a3;
+          --accent-soft: #22362b;
+          --bar: #45b489;
+          --danger: #e07a6d;
+          --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.3);
+        }
+      }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace; }
+      main { max-width: 1240px; margin: 0 auto; padding: 20px 16px 56px; }
+      .lead { max-width: 46em; margin: 4px 0 18px; color: var(--muted); font-size: 14.5px; }
+      .lead strong { color: var(--ink); }
+
+      /* ---------- load area ---------- */
+      .load-grid { display: grid; grid-template-columns: 1fr 320px; gap: 14px; align-items: stretch; }
+      .dropzone {
+        background: var(--surface);
+        border: 1.5px dashed var(--accent);
+        border-radius: 10px;
+        padding: 22px;
+        text-align: center;
+        cursor: pointer;
+        box-shadow: var(--shadow);
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+        min-height: 148px;
+      }
+      .dropzone:hover, .dropzone.drag { background: var(--accent-soft); }
+      .dropzone .big { font-size: 17px; font-weight: 700; }
+      .dropzone .small { color: var(--muted); font-size: 13px; }
+      .dropzone .fname { font-weight: 700; color: var(--accent-strong); word-break: break-all; }
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        padding: 16px 18px;
+      }
+      .panel h2 {
+        font-size: 14px; margin: 0 0 12px; letter-spacing: .02em;
+        display: flex; align-items: center; gap: 8px;
+      }
+      .panel h2 .step {
+        background: var(--accent); color: #fff; border-radius: 50%;
+        width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+        font-size: 12.5px; font-weight: 700; flex: none;
+      }
+      @media (prefers-color-scheme: dark) { .panel h2 .step { color: #0c130e; } }
+      .field { margin-bottom: 10px; }
+      .field label.lbl { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+      select, input[type="text"], input[type="search"], textarea {
+        width: 100%; padding: 7px 10px; font: inherit; font-size: 14px;
+        background: var(--surface); color: var(--ink);
+        border: 1px solid var(--line); border-radius: 7px;
+      }
+      textarea { min-height: 92px; resize: vertical; font-size: 13px; }
+      select:focus, input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+      .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+      .tabs button {
+        flex: 1; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
+        border-radius: 7px; font: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer; padding: 6px 4px;
+      }
+      .tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+      @media (prefers-color-scheme: dark) { .tabs button[aria-selected="true"] { color: #0c130e; } }
+
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+        border-radius: 7px; font: inherit; font-size: 14px; font-weight: 500;
+        padding: 7px 14px; cursor: pointer; min-height: 2.25rem;
+      }
+      .btn:hover { background: var(--surface-2); }
+      .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      .btn.primary:hover { background: var(--accent-strong); }
+      @media (prefers-color-scheme: dark) { .btn.primary { color: #0c130e; } }
+      .btn:disabled { opacity: .45; cursor: not-allowed; }
+      .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+      /* ---------- stats ---------- */
+      .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0; }
+      .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow); }
+      .stat .num { font-size: 22px; font-weight: 700; line-height: 1.25; }
+      .stat .cap { font-size: 12px; color: var(--muted); }
+      @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+      /* ---------- work area ---------- */
+      .work { display: grid; grid-template-columns: 330px 1fr; gap: 14px; align-items: start; }
+      @media (max-width: 900px) {
+        .load-grid, .work { grid-template-columns: 1fr; }
+      }
+      .side { display: flex; flex-direction: column; gap: 14px; }
+      .check-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+      .check-list label {
+        display: flex; align-items: flex-start; gap: 9px; padding: 7px 8px; border-radius: 7px; cursor: pointer;
+        font-size: 14px; min-height: 2.25rem;
+      }
+      .check-list label:hover { background: var(--surface-2); }
+      .check-list input[type="checkbox"] { width: 17px; height: 17px; margin-top: 3px; accent-color: var(--accent); flex: none; }
+      .check-list .hint { display: block; font-size: 12px; color: var(--muted); }
+      .fill-row { display: flex; gap: 8px; align-items: center; padding: 0 8px 4px 34px; }
+      .fill-row input { flex: 1; }
+      .col-list { max-height: 168px; overflow-y: auto; border: 1px solid var(--line); border-radius: 7px; padding: 4px; }
+      .col-list label { display: flex; align-items: center; gap: 8px; padding: 5px 8px; font-size: 13.5px; border-radius: 5px; cursor: pointer; min-height: 2rem; }
+      .col-list label:hover { background: var(--surface-2); }
+      .col-list input { accent-color: var(--accent); width: 16px; height: 16px; }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+      /* ---------- table ---------- */
+      .table-panel { min-width: 0; }
+      .table-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+      .table-head h2 { font-size: 14px; margin: 0; display: flex; align-items: center; gap: 8px; }
+      .table-head h2 .step {
+        background: var(--accent); color: #fff; border-radius: 50%;
+        width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+        font-size: 12.5px; font-weight: 700;
+      }
+      @media (prefers-color-scheme: dark) { .table-head h2 .step { color: #0c130e; } }
+      .table-head .search { flex: 1 1 180px; max-width: 300px; }
+      .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; max-height: 430px; overflow-y: auto; }
+      table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+      thead th {
+        position: sticky; top: 0; background: var(--surface-2); text-align: left;
+        padding: 8px 10px; border-bottom: 1.5px solid var(--line); white-space: nowrap;
+        font-weight: 700; cursor: pointer; user-select: none; z-index: 1;
+      }
+      thead th:hover { color: var(--accent-strong); }
+      tbody td { padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+      tbody tr:last-child td { border-bottom: none; }
+      td.num, th.num { text-align: right; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+      td.empty-cell { background: color-mix(in srgb, var(--danger) 7%, transparent); }
+      .empty-state { padding: 44px 20px; text-align: center; color: var(--muted); }
+      .empty-state .big { font-size: 15.5px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+
+      /* ---------- aggregate ---------- */
+      .agg-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; margin-top: 12px; }
+      .bars { margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
+      .bar-row { display: grid; grid-template-columns: 110px 1fr 92px; gap: 10px; align-items: center; font-size: 13px; }
+      .bar-row .gname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+      .bar-track { background: var(--surface-2); border-radius: 4px; height: 18px; overflow: hidden; }
+      .bar-fill { background: var(--bar); height: 100%; border-radius: 4px; min-width: 2px; }
+      .bar-row .gval { text-align: right; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+      @media (max-width: 480px) { .bar-row { grid-template-columns: 84px 1fr 76px; } }
+
+      .toast {
+        position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(16px);
+        background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 8px;
+        font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50;
+        max-width: calc(100vw - 32px); text-align: center;
+      }
+      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+      .foot { margin-top: 26px; color: var(--muted); font-size: 12.5px; text-align: center; }
+      .hidden { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="lead">
+        CSVファイルを読み込むと、<strong>空白や全角文字の統一・重複の削除・日付や金額の整え直し</strong>といった整形と、
+        <strong>項目ごとの合計・件数などの集計</strong>がその場でできます。処理はすべてこのページの中で完結し、整形後のCSVをダウンロードできます。
+        まずは「サンプルデータを試す」からでもどうぞ。
+      </p>
+
+      <!-- 読み込み -->
+      <div class="load-grid">
+        <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="CSVファイルを選択">
+          <div class="big" id="dzTitle">CSVファイルをここにドロップ</div>
+          <div class="small">またはクリックしてファイルを選択（.csv / .txt）</div>
+          <div class="fname hidden" id="dzFile"></div>
+          <input type="file" id="fileInput" accept=".csv,.txt,text/csv,text/plain" class="hidden" />
+        </div>
+
+        <section class="panel" aria-label="読み込み設定">
+          <div class="tabs" role="tablist">
+            <button type="button" id="tabFile" role="tab" aria-selected="true">ファイル</button>
+            <button type="button" id="tabPaste" role="tab" aria-selected="false">テキスト貼り付け</button>
+          </div>
+          <div id="paneFile">
+            <div class="field">
+              <label class="lbl" for="encSelect">文字コード</label>
+              <select id="encSelect">
+                <option value="auto">自動判定（UTF-8 / Shift_JIS）</option>
+                <option value="utf-8">UTF-8</option>
+                <option value="shift_jis">Shift_JIS（ExcelのCSVなど）</option>
+              </select>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn primary" id="sampleBtn">サンプルデータを試す</button>
+            </div>
+            <p class="note">サンプルは、日付の書き方がバラバラ・全角数字・重複行・空セルが混ざった売上明細です。整形の効果が分かりやすい内容になっています。</p>
+          </div>
+          <div id="panePaste" class="hidden">
+            <div class="field">
+              <label class="lbl" for="pasteArea">CSVテキスト</label>
+              <textarea id="pasteArea" placeholder="日付,店舗,金額&#10;2024/1/5,新宿店,1200"></textarea>
+            </div>
+            <button type="button" class="btn primary" id="pasteBtn">このテキストを読み込む</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- 統計 -->
+      <div class="stats" aria-label="データの概要">
+        <div class="stat"><div class="num mono" id="statRows">–</div><div class="cap">データ行数（整形後）</div></div>
+        <div class="stat"><div class="num mono" id="statCols">–</div><div class="cap">列数</div></div>
+        <div class="stat"><div class="num mono" id="statEmpty">–</div><div class="cap">空セル数</div></div>
+        <div class="stat"><div class="num mono" id="statDup">–</div><div class="cap">削除した重複行</div></div>
+      </div>
+
+      <div class="work">
+        <!-- サイドバー：整形・集計・出力 -->
+        <div class="side">
+          <section class="panel" aria-label="整形オプション">
+            <h2><span class="step">1</span>整形オプション</h2>
+            <ul class="check-list">
+              <li><label><input type="checkbox" id="optHeader" checked /><span>1行目を見出しとして扱う</span></label></li>
+              <li><label><input type="checkbox" id="optTrim" checked /><span>セル前後の空白を除去<span class="hint">「 新宿店 」→「新宿店」</span></span></label></li>
+              <li><label><input type="checkbox" id="optEmptyRows" checked /><span>空行を削除</span></label></li>
+              <li><label><input type="checkbox" id="optZenkaku" checked /><span>全角の英数字を半角に統一<span class="hint">「１０」→「10」</span></span></label></li>
+              <li><label><input type="checkbox" id="optNum" checked /><span>金額などの表記を数値に統一<span class="hint">「1,200円」「¥750」→「1200」「750」</span></span></label></li>
+              <li><label><input type="checkbox" id="optDate" checked /><span>日付を YYYY-MM-DD に統一<span class="hint">「2024/1/5」「2024年1月5日」などに対応</span></span></label></li>
+              <li><label><input type="checkbox" id="optDedupe" checked /><span>重複行を削除<span class="hint">整形後にまったく同じ行を1行にまとめます</span></span></label></li>
+              <li><label><input type="checkbox" id="optFill" /><span>空セルを文字で埋める</span></label></li>
+            </ul>
+            <div class="fill-row">
+              <label for="fillText" style="font-size:12.5px;color:var(--muted)">埋める文字</label>
+              <input type="text" id="fillText" value="（未入力）" />
+            </div>
+            <div class="field" style="margin-top:12px">
+              <label class="lbl">出力する列（チェックを外した列は出力されません）</label>
+              <div class="col-list" id="colList"><span style="font-size:13px;color:var(--muted);padding:4px 8px;display:block">データを読み込むと列が表示されます</span></div>
+            </div>
+            <button type="button" class="btn" id="resetBtn">元のデータに戻す</button>
+          </section>
+
+          <section class="panel" aria-label="集計">
+            <h2><span class="step">2</span>集計</h2>
+            <div class="field">
+              <label class="lbl" for="aggGroup">グループ化する列（店舗・商品など）</label>
+              <select id="aggGroup"><option value="">— データ未読込 —</option></select>
+            </div>
+            <div class="grid2">
+              <div class="field">
+                <label class="lbl" for="aggMethod">集計方法</label>
+                <select id="aggMethod">
+                  <option value="sum">合計</option>
+                  <option value="count">件数</option>
+                  <option value="avg">平均</option>
+                  <option value="max">最大</option>
+                  <option value="min">最小</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="lbl" for="aggValue">集計する列（数値）</label>
+                <select id="aggValue"><option value="">— データ未読込 —</option></select>
+              </div>
+            </div>
+            <p class="note">集計は整形後の全データが対象です（列の表示設定には影響されません）。「件数」のときは集計する列は使いません。</p>
+            <div class="agg-table-wrap hidden" id="aggWrap">
+              <table>
+                <thead><tr><th id="aggHeadGroup">グループ</th><th class="num" id="aggHeadVal">値</th><th class="num">件数</th></tr></thead>
+                <tbody id="aggBody"></tbody>
+              </table>
+            </div>
+            <div class="bars" id="aggChart"></div>
+            <div class="btn-row" style="margin-top:12px">
+              <button type="button" class="btn" id="aggDownloadBtn" disabled>集計結果をCSVで保存</button>
+              <button type="button" class="btn" id="aggCopyBtn" disabled>集計結果をコピー</button>
+            </div>
+          </section>
+
+          <section class="panel" aria-label="出力">
+            <h2><span class="step">3</span>出力</h2>
+            <ul class="check-list">
+              <li><label><input type="checkbox" id="optBom" checked /><span>Excel用にBOM付きで保存<span class="hint">Excelで開いたときの文字化けを防ぎます</span></span></label></li>
+            </ul>
+            <div class="btn-row" style="margin-top:10px">
+              <button type="button" class="btn primary" id="downloadBtn" disabled>整形後CSVをダウンロード</button>
+              <button type="button" class="btn" id="copyBtn" disabled>整形後CSVをコピー</button>
+            </div>
+            <p class="note">並び替え（見出しクリック）や絞り込みは、ダウンロードするCSVにも反映されます。</p>
+          </section>
+        </div>
+
+        <!-- プレビュー -->
+        <section class="panel table-panel" aria-label="プレビュー">
+          <div class="table-head">
+            <h2><span class="step">✓</span>プレビュー</h2>
+            <input type="search" class="search" id="searchInput" placeholder="行を絞り込み（キーワード）" aria-label="行を絞り込み" />
+          </div>
+          <div class="table-scroll">
+            <div class="empty-state" id="emptyState">
+              <div class="big">まだデータが読み込まれていません</div>
+              <div>CSVファイルをドロップするか、「サンプルデータを試す」を押してください。</div>
+            </div>
+            <table id="dataTable" class="hidden">
+              <thead id="dataHead"></thead>
+              <tbody id="dataBody"></tbody>
+            </table>
+          </div>
+          <p class="note" id="tableNote"></p>
+        </section>
+      </div>
+
+      <p class="foot">読み込んだファイルが外部に送信されることはありません。すべての処理はお使いのブラウザの中で行われます。</p>
+    </main>
+
+    <div class="toast" id="toast" role="status"></div>
+
+    <script>
+      "use strict";
+      var $ = function (id) { return document.getElementById(id); };
+
+      /* ================= サンプルデータ ================= */
+      var SAMPLE = [
+        "日付,店舗,商品,数量,金額",
+        "2024/1/5, 新宿店 ,りんご,１０,\"1,200円\"",
+        "2024年1月5日,新宿店,りんご,10,\"1,200円\"",
+        "2024-01-06,渋谷店,みかん,5,750円",
+        "2024/1/6,渋谷店,みかん,５,750",
+        "2024.1.7,池袋店,ぶどう,3,\"2,400円\"",
+        "",
+        "2024/1/7,池袋店,ぶどう,3,\"2,400円\"",
+        "2024/1/8, 新宿店,みかん,,500円",
+        "2024/1/8,渋谷店,りんご,8,960円",
+        "2024/1/9,池袋店,りんご,12,\"1,440円\"",
+        "2024/1/9,新宿店,ぶどう,2,\"1,600円\"",
+        "2024/1/10,渋谷店,,4,600円",
+        "2024/1/10,新宿店,みかん,6,900円"
+      ].join("\n");
+
+      /* ================= 状態 ================= */
+      var rawRows = null;        // パース直後の全行
+      var sourceName = "";
+      var sortState = { col: -1, dir: 1 };
+      var colKeep = {};          // 列名 -> true/false
+      var aggRows = [];          // 集計結果 [{group, value, count}]
+
+      /* ================= CSV パース / 出力 ================= */
+      function parseCSV(text, delim) {
+        var rows = [], row = [], field = "", inQ = false, i, c;
+        for (i = 0; i < text.length; i++) {
+          c = text[i];
+          if (inQ) {
+            if (c === '"') {
+              if (text[i + 1] === '"') { field += '"'; i++; }
+              else inQ = false;
+            } else field += c;
+          } else if (c === '"') {
+            inQ = true;
+          } else if (c === delim) {
+            row.push(field); field = "";
+          } else if (c === "\n") {
+            row.push(field); rows.push(row); row = []; field = "";
+          } else if (c === "\r") {
+            if (text[i + 1] !== "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+          } else field += c;
+        }
+        if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+        return rows;
+      }
+
+      function detectDelimiter(text) {
+        var lines = text.split(/\r?\n/), line = "", i;
+        for (i = 0; i < lines.length; i++) { if (lines[i].trim()) { line = lines[i]; break; } }
+        var cands = [",", "\t", ";", "、"], best = ",", bestN = -1;
+        cands.forEach(function (d) {
+          var n = 0, inQ = false;
+          for (var j = 0; j < line.length; j++) {
+            if (line[j] === '"') inQ = !inQ;
+            else if (!inQ && line[j] === d) n++;
+          }
+          if (n > bestN) { bestN = n; best = d; }
+        });
+        return best;
+      }
+
+      function csvEscape(v) {
+        v = String(v == null ? "" : v);
+        if (/[",\n\r]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+        return v;
+      }
+      function toCSV(headers, rows) {
+        var out = [];
+        if (headers) out.push(headers.map(csvEscape).join(","));
+        rows.forEach(function (r) { out.push(r.map(csvEscape).join(",")); });
+        return out.join("\r\n");
+      }
+
+      /* ================= 整形ヘルパー ================= */
+      function toHalfWidth(v) {
+        return v.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function (c) {
+          return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+        }).replace(/　/g, " ");
+      }
+      function cleanNumber(v) {
+        var s = v.trim();
+        var m = s.match(/^[¥￥]?\s*([0-9][0-9,]*(\.[0-9]+)?)\s*(円|％|%)?$/);
+        if (m) return m[1].replace(/,/g, "");
+        return v;
+      }
+      function pad2(n) { n = String(n); return n.length < 2 ? "0" + n : n; }
+      function normalizeDate(v) {
+        var s = v.trim(), m;
+        m = s.match(/^(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})$/);
+        if (m) return m[1] + "-" + pad2(m[2]) + "-" + pad2(m[3]);
+        m = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?$/);
+        if (m) return m[1] + "-" + pad2(m[2]) + "-" + pad2(m[3]);
+        m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m && +m[1] <= 12 && +m[2] <= 31) return m[3] + "-" + pad2(m[1]) + "-" + pad2(m[2]);
+        return v;
+      }
+      function parseNum(v) {
+        if (v == null) return NaN;
+        var s = String(v).replace(/[,\s¥￥円%％]/g, "");
+        if (s === "") return NaN;
+        var n = parseFloat(s);
+        return isNaN(n) ? NaN : n;
+      }
+      function fmtNum(n) {
+        if (n == null || isNaN(n)) return "—";
+        var r = Math.round(n * 100) / 100;
+        return r.toLocaleString("ja-JP", { maximumFractionDigits: 2 });
+      }
+
+      /* ================= 整形パイプライン ================= */
+      function processData() {
+        if (!rawRows) return null;
+        var hasHeader = $("optHeader").checked;
+        var width = 0;
+        rawRows.forEach(function (r) { if (r.length > width) width = r.length; });
+        var all = rawRows.map(function (r) {
+          var c = r.slice();
+          while (c.length < width) c.push("");
+          return c;
+        });
+        var headers = null, data = all;
+        if (hasHeader && all.length) {
+          headers = all[0].map(function (h, i) { return h === "" ? "列" + (i + 1) : h; });
+          data = all.slice(1);
+        }
+        var dupRemoved = 0;
+
+        data = data.map(function (row) {
+          return row.map(function (cell) {
+            var v = String(cell);
+            if ($("optZenkaku").checked) v = toHalfWidth(v);
+            if ($("optTrim").checked) v = v.trim();
+            if ($("optNum").checked) v = cleanNumber(v);
+            if ($("optDate").checked) v = normalizeDate(v);
+            return v;
+          });
+        });
+        if ($("optEmptyRows").checked) {
+          data = data.filter(function (row) {
+            return row.some(function (c) { return c !== ""; });
+          });
+        }
+        if ($("optFill").checked) {
+          var fill = $("fillText").value;
+          data = data.map(function (row) {
+            return row.map(function (c) { return c === "" ? fill : c; });
+          });
+        }
+        if ($("optDedupe").checked) {
+          var seen = {}, out = [];
+          data.forEach(function (row) {
+            var key = row.join("\u0001");
+            if (seen[key]) { dupRemoved++; return; }
+            seen[key] = true; out.push(row);
+          });
+          data = out;
+        }
+        var emptyCells = 0;
+        data.forEach(function (row) { row.forEach(function (c) { if (c === "") emptyCells++; }); });
+        return { headers: headers, rows: data, width: width, dupRemoved: dupRemoved, emptyCells: emptyCells };
+      }
+
+      /* 表示・出力用に列選択と並び替えと絞り込みを適用 */
+      function viewData(proc) {
+        var headers = proc.headers, rows = proc.rows;
+        var idx = [];
+        if (headers) {
+          headers.forEach(function (h, i) { if (colKeep[h] !== false) idx.push(i); });
+        } else {
+          for (var i = 0; i < proc.width; i++) idx.push(i);
+        }
+        var vHeaders = headers ? idx.map(function (i) { return headers[i]; }) : null;
+        var vRows = rows.map(function (r) { return idx.map(function (i) { return r[i]; }); });
+
+        var q = $("searchInput").value.trim();
+        if (q) {
+          var ql = q.toLowerCase();
+          vRows = vRows.filter(function (r) {
+            return r.some(function (c) { return String(c).toLowerCase().indexOf(ql) >= 0; });
+          });
+        }
+        if (sortState.col >= 0 && sortState.col < idx.length) {
+          var origCol = idx[sortState.col];
+          var decorated = vRows.map(function (r, i) { return { r: r, i: i, k: proc.rows.filter(Boolean) ? null : null, key: null }; });
+          // 並び替えは元の行の値で判定（数値優先）
+          var srcRows = rows.map(function (r) { return idx.map(function (i2) { return r[i2]; }); });
+          if (q) {
+            // 絞り込み後は vRows と srcRows の対応がずれるため、vRows 自身で並び替える
+            decorated = vRows.map(function (r, i) { return { r: r, i: i }; });
+            decorated.sort(function (a, b) {
+              return cmpVal(a.r[sortState.col], b.r[sortState.col]) * sortState.dir || (a.i - b.i);
+            });
+            vRows = decorated.map(function (d) { return d.r; });
+          } else {
+            decorated = srcRows.map(function (r, i) { return { r: r, i: i }; });
+            decorated.sort(function (a, b) {
+              return cmpVal(a.r[sortState.col], b.r[sortState.col]) * sortState.dir || (a.i - b.i);
+            });
+            vRows = decorated.map(function (d) { return d.r; });
+          }
+          void origCol;
+        }
+        return { headers: vHeaders, rows: vRows, colIdx: idx };
+      }
+      function cmpVal(a, b) {
+        var na = parseNum(a), nb = parseNum(b);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        return String(a).localeCompare(String(b), "ja");
+      }
+
+      /* ================= 集計 ================= */
+      function computeAgg(proc) {
+        aggRows = [];
+        if (!proc || !proc.headers) return;
+        var gName = $("aggGroup").value, vName = $("aggValue").value, method = $("aggMethod").value;
+        var gi = proc.headers.indexOf(gName);
+        if (gi < 0) return;
+        var vi = proc.headers.indexOf(vName);
+        var map = {}, order = [];
+        proc.rows.forEach(function (row) {
+          var g = row[gi] === "" ? "（空欄）" : row[gi];
+          if (!map[g]) { map[g] = { group: g, vals: [], count: 0 }; order.push(g); }
+          map[g].count++;
+          var n = vi >= 0 ? parseNum(row[vi]) : NaN;
+          if (!isNaN(n)) map[g].vals.push(n);
+        });
+        order.forEach(function (g) {
+          var e = map[g], val = null;
+          if (method === "count") val = e.count;
+          else if (e.vals.length) {
+            if (method === "sum") val = e.vals.reduce(function (a, b) { return a + b; }, 0);
+            else if (method === "avg") val = e.vals.reduce(function (a, b) { return a + b; }, 0) / e.vals.length;
+            else if (method === "max") val = Math.max.apply(null, e.vals);
+            else if (method === "min") val = Math.min.apply(null, e.vals);
+          }
+          aggRows.push({ group: g, value: val, count: e.count });
+        });
+        aggRows.sort(function (a, b) {
+          var av = a.value == null ? -Infinity : a.value, bv = b.value == null ? -Infinity : b.value;
+          return bv - av;
+        });
+      }
+
+      /* ================= 描画 ================= */
+      function render() {
+        var proc = processData();
+        var has = !!proc;
+        $("downloadBtn").disabled = !has;
+        $("copyBtn").disabled = !has;
+        if (!has) {
+          $("statRows").textContent = "–"; $("statCols").textContent = "–";
+          $("statEmpty").textContent = "–"; $("statDup").textContent = "–";
+          return;
+        }
+        $("statRows").textContent = proc.rows.length.toLocaleString("ja-JP");
+        $("statCols").textContent = String(proc.width);
+        $("statEmpty").textContent = proc.emptyCells.toLocaleString("ja-JP");
+        $("statDup").textContent = proc.dupRemoved.toLocaleString("ja-JP");
+
+        buildColList(proc);
+        buildAggSelects(proc);
+        computeAgg(proc);
+        renderAgg();
+        renderTable(proc);
+      }
+
+      function buildColList(proc) {
+        var box = $("colList");
+        box.innerHTML = "";
+        if (!proc.headers) {
+          box.innerHTML = '<span style="font-size:13px;color:var(--muted);padding:4px 8px;display:block">見出しなしのため列の選択はできません</span>';
+          return;
+        }
+        proc.headers.forEach(function (h) {
+          if (!(h in colKeep)) colKeep[h] = true;
+          var lab = document.createElement("label");
+          var cb = document.createElement("input");
+          cb.type = "checkbox"; cb.checked = colKeep[h] !== false;
+          cb.addEventListener("change", function () { colKeep[h] = cb.checked; render(); });
+          lab.appendChild(cb);
+          lab.appendChild(document.createTextNode(h));
+          box.appendChild(lab);
+        });
+      }
+
+      function buildAggSelects(proc) {
+        var gSel = $("aggGroup"), vSel = $("aggValue");
+        var gPrev = gSel.value, vPrev = vSel.value;
+        gSel.innerHTML = ""; vSel.innerHTML = "";
+        if (!proc.headers) {
+          gSel.innerHTML = '<option value="">— 見出しが必要です —</option>';
+          vSel.innerHTML = '<option value="">— 見出しが必要です —</option>';
+          return;
+        }
+        proc.headers.forEach(function (h) {
+          var o1 = document.createElement("option"); o1.value = h; o1.textContent = h; gSel.appendChild(o1);
+          var o2 = document.createElement("option"); o2.value = h; o2.textContent = h; vSel.appendChild(o2);
+        });
+        if (proc.headers.indexOf(gPrev) >= 0) gSel.value = gPrev;
+        else {
+          // グループの初期値: 文字列中心の列（店舗・商品など）を優先
+          var gPick = proc.headers[0];
+          for (var gi2 = 0; gi2 < proc.headers.length; gi2++) {
+            var numericCount = 0, total = 0;
+            proc.rows.forEach(function (r) {
+              if (r[gi2] !== "") { total++; if (!isNaN(parseNum(r[gi2]))) numericCount++; }
+            });
+            if (total > 0 && numericCount / total < 0.5) { gPick = proc.headers[gi2]; break; }
+          }
+          gSel.value = gPick;
+        }
+        if (proc.headers.indexOf(vPrev) >= 0) vSel.value = vPrev;
+        else {
+          // 数値列の初期値: 「2024-01-05」のような日付を除外し、
+          // 純粋な数値（1200 など）の割合が最も高い列を選ぶ
+          var bestCol = -1, bestRatio = -1;
+          for (var vi2 = 0; vi2 < proc.headers.length; vi2++) {
+            if (proc.headers[vi2] === gSel.value) continue;
+            var tot = 0, plain = 0;
+            proc.rows.forEach(function (r) {
+              var v = String(r[vi2]).trim();
+              if (v !== "") { tot++; if (/^[0-9]+(\.[0-9]+)?$/.test(v)) plain++; }
+            });
+            if (tot === 0) continue;
+            var ratio = plain / tot;
+            if (ratio > bestRatio || (ratio === bestRatio && vi2 > bestCol)) { bestRatio = ratio; bestCol = vi2; }
+          }
+          if (bestCol >= 0 && bestRatio > 0) vSel.value = proc.headers[bestCol];
+        }
+      }
+
+      function renderTable(proc) {
+        var view = viewData(proc);
+        var table = $("dataTable"), head = $("dataHead"), body = $("dataBody");
+        if (!proc.rows.length && !view.rows.length) {
+          table.classList.add("hidden");
+          $("emptyState").classList.remove("hidden");
+          $("emptyState").querySelector(".big").textContent = "表示できる行がありません";
+          $("tableNote").textContent = "";
+          return;
+        }
+        $("emptyState").classList.add("hidden");
+        table.classList.remove("hidden");
+        head.innerHTML = ""; body.innerHTML = "";
+        var trh = document.createElement("tr");
+        var cols = view.headers || view.rows[0].map(function (_, i) { return "列" + (i + 1); });
+        cols.forEach(function (h, ci) {
+          var th = document.createElement("th");
+          var arrow = sortState.col === ci ? (sortState.dir === 1 ? " ▲" : " ▼") : "";
+          th.textContent = h + arrow;
+          th.title = "クリックで並び替え";
+          th.addEventListener("click", function () {
+            if (sortState.col === ci) sortState.dir = -sortState.dir;
+            else { sortState.col = ci; sortState.dir = 1; }
+            render();
+          });
+          trh.appendChild(th);
+        });
+        head.appendChild(trh);
+
+        var LIMIT = 100;
+        var show = view.rows.slice(0, LIMIT);
+        show.forEach(function (row) {
+          var tr = document.createElement("tr");
+          row.forEach(function (cell, ci) {
+            var td = document.createElement("td");
+            td.textContent = cell;
+            if (cell === "") td.className = "empty-cell";
+            else if (!isNaN(parseNum(cell))) td.className = "num";
+            void ci;
+            tr.appendChild(td);
+          });
+          body.appendChild(tr);
+        });
+        $("tableNote").textContent =
+          "全 " + view.rows.length.toLocaleString("ja-JP") + " 行中、先頭 " + show.length + " 行を表示しています。" +
+          (sortState.col >= 0 ? "「" + cols[sortState.col] + "」で" + (sortState.dir === 1 ? "昇順" : "降順") + "に並び替え中。" : "見出しをクリックすると並び替えできます。");
+      }
+
+      function renderAgg() {
+        var wrap = $("aggWrap"), body = $("aggBody"), chart = $("aggChart");
+        var has = aggRows.length > 0;
+        wrap.classList.toggle("hidden", !has);
+        $("aggDownloadBtn").disabled = !has;
+        $("aggCopyBtn").disabled = !has;
+        chart.innerHTML = "";
+        if (!has) return;
+        $("aggHeadGroup").textContent = $("aggGroup").value || "グループ";
+        var methodLabel = { sum: "合計", count: "件数", avg: "平均", max: "最大", min: "最小" }[$("aggMethod").value];
+        $("aggHeadVal").textContent = $("aggMethod").value === "count" ? "件数" : methodLabel + "（" + $("aggValue").value + "）";
+        body.innerHTML = "";
+        aggRows.forEach(function (r) {
+          var tr = document.createElement("tr");
+          var td1 = document.createElement("td"); td1.textContent = r.group;
+          var td2 = document.createElement("td"); td2.className = "num"; td2.textContent = fmtNum(r.value);
+          var td3 = document.createElement("td"); td3.className = "num"; td3.textContent = r.count.toLocaleString("ja-JP");
+          tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+          body.appendChild(tr);
+        });
+        var max = 0;
+        aggRows.forEach(function (r) { if (r.value != null && r.value > max) max = r.value; });
+        aggRows.slice(0, 12).forEach(function (r) {
+          var rowEl = document.createElement("div"); rowEl.className = "bar-row";
+          var name = document.createElement("div"); name.className = "gname"; name.textContent = r.group; name.title = r.group;
+          var track = document.createElement("div"); track.className = "bar-track";
+          var fill = document.createElement("div"); fill.className = "bar-fill";
+          fill.style.width = (max > 0 && r.value != null ? Math.max(1.5, (r.value / max) * 100) : 0) + "%";
+          track.appendChild(fill);
+          var val = document.createElement("div"); val.className = "gval"; val.textContent = fmtNum(r.value);
+          rowEl.appendChild(name); rowEl.appendChild(track); rowEl.appendChild(val);
+          chart.appendChild(rowEl);
+        });
+      }
+
+      /* ================= 読み込み ================= */
+      function loadText(text, name) {
+        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+        var delim = detectDelimiter(text);
+        rawRows = parseCSV(text, delim);
+        // 末尾の完全な空行は除く
+        while (rawRows.length && rawRows[rawRows.length - 1].every(function (c) { return c === ""; })) rawRows.pop();
+        sourceName = name || "";
+        colKeep = {};
+        sortState = { col: -1, dir: 1 };
+        $("searchInput").value = "";
+        if (sourceName) {
+          $("dzFile").textContent = sourceName;
+          $("dzFile").classList.remove("hidden");
+          $("dzTitle").textContent = "読み込み完了（クリックで別のファイルに差し替え）";
+        }
+        render();
+        toast(sourceName ? "「" + sourceName + "」を読み込みました" : "データを読み込みました");
+      }
+
+      function readFile(file) {
+        if (!file) return;
+        file.arrayBuffer().then(function (buf) {
+          var enc = $("encSelect").value, text;
+          if (enc === "auto") {
+            try { text = new TextDecoder("utf-8", { fatal: true }).decode(buf); }
+            catch (e) { text = new TextDecoder("shift_jis").decode(buf); }
+          } else {
+            text = new TextDecoder(enc).decode(buf);
+          }
+          loadText(text, file.name);
+        }).catch(function () { toast("ファイルの読み込みに失敗しました"); });
+      }
+
+      /* ================= 出力 ================= */
+      function downloadCSV(filename, text) {
+        var content = ($("optBom").checked ? "\uFEFF" : "") + text;
+        var blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      }
+      function copyText(text, msg) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () { toast(msg); }, function () { fallbackCopy(text, msg); });
+        } else fallbackCopy(text, msg);
+      }
+      function fallbackCopy(text, msg) {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); toast(msg); }
+        catch (e) { toast("コピーできませんでした"); }
+        document.body.removeChild(ta);
+      }
+      function baseName() {
+        if (!sourceName) return "data";
+        return sourceName.replace(/\.(csv|txt)$/i, "");
+      }
+
+      /* ================= トースト ================= */
+      var toastTimer = null;
+      function toast(msg) {
+        var t = $("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2600);
+      }
+
+      /* ================= イベント ================= */
+      var dz = $("dropzone"), fi = $("fileInput");
+      dz.addEventListener("click", function () { fi.click(); });
+      dz.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fi.click(); } });
+      fi.addEventListener("change", function () { readFile(fi.files[0]); fi.value = ""; });
+      ["dragenter", "dragover"].forEach(function (ev) {
+        dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add("drag"); });
+      });
+      ["dragleave", "drop"].forEach(function (ev) {
+        dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove("drag"); });
+      });
+      dz.addEventListener("drop", function (e) {
+        var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) readFile(f);
+      });
+
+      $("sampleBtn").addEventListener("click", function () { loadText(SAMPLE, "サンプル売上明細.csv"); });
+      $("pasteBtn").addEventListener("click", function () {
+        var t = $("pasteArea").value;
+        if (!t.trim()) { toast("テキストが空です"); return; }
+        loadText(t, "貼り付けデータ.csv");
+      });
+
+      $("tabFile").addEventListener("click", function () { switchTab(true); });
+      $("tabPaste").addEventListener("click", function () { switchTab(false); });
+      function switchTab(fileTab) {
+        $("tabFile").setAttribute("aria-selected", fileTab ? "true" : "false");
+        $("tabPaste").setAttribute("aria-selected", fileTab ? "false" : "true");
+        $("paneFile").classList.toggle("hidden", !fileTab);
+        $("panePaste").classList.toggle("hidden", fileTab);
+      }
+
+      ["optHeader", "optTrim", "optEmptyRows", "optZenkaku", "optNum", "optDate", "optDedupe", "optFill"].forEach(function (id) {
+        $(id).addEventListener("change", render);
+      });
+      $("fillText").addEventListener("input", function () { if ($("optFill").checked) render(); });
+      $("searchInput").addEventListener("input", render);
+      ["aggGroup", "aggValue", "aggMethod"].forEach(function (id) {
+        $(id).addEventListener("change", render);
+      });
+      $("encSelect").addEventListener("change", function () {
+        if (fi.files && fi.files[0]) readFile(fi.files[0]);
+      });
+
+      $("resetBtn").addEventListener("click", function () {
+        colKeep = {}; sortState = { col: -1, dir: 1 }; $("searchInput").value = "";
+        render(); toast("表示と並び替えをリセットしました（整形オプションはそのままです）");
+      });
+
+      $("downloadBtn").addEventListener("click", function () {
+        var proc = processData(); if (!proc) return;
+        var view = viewData(proc);
+        downloadCSV(baseName() + "_整形済み.csv", toCSV(view.headers, view.rows));
+        toast("整形後CSVをダウンロードしました");
+      });
+      $("copyBtn").addEventListener("click", function () {
+        var proc = processData(); if (!proc) return;
+        var view = viewData(proc);
+        copyText(toCSV(view.headers, view.rows), "整形後CSVをコピーしました");
+      });
+      $("aggDownloadBtn").addEventListener("click", function () {
+        var g = $("aggGroup").value || "グループ";
+        var rows = aggRows.map(function (r) { return [r.group, r.value == null ? "" : r.value, r.count]; });
+        downloadCSV(baseName() + "_集計.csv", toCSV([g, "値", "件数"], rows));
+        toast("集計結果をダウンロードしました");
+      });
+      $("aggCopyBtn").addEventListener("click", function () {
+        var g = $("aggGroup").value || "グループ";
+        var rows = aggRows.map(function (r) { return [r.group, r.value == null ? "" : r.value, r.count]; });
+        copyText(toCSV([g, "値", "件数"], rows), "集計結果をコピーしました");
+      });
+    </script>
+  </body>
+</html>
